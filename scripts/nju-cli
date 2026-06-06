@@ -1,0 +1,31 @@
+#!/usr/bin/env sh
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+plugin_dir=$(CDPATH= cd -- "${script_dir}/.." && pwd)
+
+os=$(uname -s)
+arch=$(uname -m)
+
+case "${os}:${arch}" in
+  Linux:x86_64|Linux:amd64)
+    bin="${plugin_dir}/bin/linux-x86_64/nju-cli"
+    ;;
+  Linux:aarch64|Linux:arm64)
+    bin="${plugin_dir}/bin/linux-aarch64/nju-cli"
+    ;;
+  Darwin:arm64|Darwin:aarch64)
+    bin="${plugin_dir}/bin/macos-aarch64/nju-cli"
+    ;;
+  *)
+    echo "unsupported platform: ${os}/${arch}" >&2
+    exit 1
+    ;;
+esac
+
+if [ ! -x "${bin}" ]; then
+  echo "nju-cli binary is not packaged for ${os}/${arch}; sync package binaries from a release first" >&2
+  exit 1
+fi
+
+exec "${bin}" "$@"

@@ -1,0 +1,58 @@
+name: Sync nju-cli binaries
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: nju-cli release tag to sync
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/nju-cli-artifacts bin
+          mkdir -p /tmp/nju-cli-artifacts bin
+          gh release download "$TAG" \
+            --repo nju-cli/nju-cli \
+            --dir /tmp/nju-cli-artifacts \
+            --pattern 'nju-cli-*'
+
+      - name: Unpack binaries
+        run: |
+          set -euo pipefail
+          mkdir -p bin/linux-x86_64 bin/linux-aarch64 bin/macos-aarch64 bin/windows-x86_64
+
+          tar -xzf /tmp/nju-cli-artifacts/nju-cli-linux-x86_64.tar.gz -C bin/linux-x86_64
+          tar -xzf /tmp/nju-cli-artifacts/nju-cli-linux-aarch64.tar.gz -C bin/linux-aarch64
+          tar -xzf /tmp/nju-cli-artifacts/nju-cli-macos-aarch64.tar.gz -C bin/macos-aarch64
+          unzip -o /tmp/nju-cli-artifacts/nju-cli-windows-x86_64.zip -d bin/windows-x86_64
+
+          chmod +x bin/linux-x86_64/nju-cli bin/linux-aarch64/nju-cli bin/macos-aarch64/nju-cli
+
+      - name: Commit binary sync
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bin
+          if git diff --cached --quiet; then
+            echo "No binary changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: sync nju-cli binaries for ${TAG}"
+          git push
