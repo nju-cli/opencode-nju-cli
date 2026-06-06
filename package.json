@@ -5,7 +5,7 @@
   "type": "module",
   "main": "./src/index.js",
   "bin": {
-    "nju-cli": "./scripts/nju-cli.mjs"
+    "nju-cli": "scripts/nju-cli.mjs"
   },
   "files": [
     "bin/",
