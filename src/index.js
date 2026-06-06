@@ -68,7 +68,7 @@ export const NjuCliPlugin = async ({ directory }) => {
     tool: {
       nju_cli: tool({
         description:
-          "Run the bundled nju-cli binary for Nanjing University services. Pass command-line arguments as an array, for example [\"academic-affairs\", \"notices\", \"--help\"].",
+          "Run the bundled nju-cli binary for Nanjing University services: academic affairs notices/calendar, ehall grades/course schedule/training program/courses, exchange-system news/projects, and youth-league notices. For unfamiliar NJU workflows, call nju_cli_docs first to read the bundled skill guidance, then pass command-line arguments as an array, for example [\"academic-affairs\", \"notices\", \"--help\"].",
         args: {
           args: tool.schema.array(tool.schema.string()).describe("Arguments to pass to nju-cli."),
           cwd: tool.schema.string().optional().describe("Working directory. Defaults to the current OpenCode project directory."),
@@ -79,7 +79,7 @@ export const NjuCliPlugin = async ({ directory }) => {
       }),
       nju_cli_docs: tool({
         description:
-          "Read bundled nju-cli skill guidance. Use this before choosing nju-cli subcommands for NJU academic affairs, ehall, exchange-system, and youth-league workflows.",
+          "Read the bundled nju-cli skill docs included in this OpenCode npm plugin. Use this before choosing nju-cli subcommands for Nanjing University academic affairs, ehall grades/course schedule/training program/courses, exchange-system news/projects, and youth-league workflows.",
         args: {
           topic: tool.schema
             .string()
