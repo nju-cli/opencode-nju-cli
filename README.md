@@ -1,6 +1,6 @@
 # NJU CLI OpenCode Plugin
 
-This package provides an OpenCode plugin for `nju-cli`, plus bundled OpenCode-compatible skill docs for Nanjing University workflows.
+This package provides an OpenCode plugin for `nju-cli`, with bundled OpenCode-compatible skill docs for Nanjing University workflows.
 
 ## Install
 
@@ -15,12 +15,14 @@ Add the npm plugin to `opencode.json`:
 
 OpenCode installs npm plugins automatically at startup with Bun.
 
+That is the full install path. Users do not need to copy skill files manually.
+
 ## Tools
 
 The plugin exposes two tools:
 
 - `nju_cli`: runs the bundled `nju-cli` binary.
-- `nju_cli_docs`: reads bundled skill guidance before choosing a subcommand.
+- `nju_cli_docs`: reads the bundled skill guidance before choosing a subcommand.
 
 Example prompt:
 
@@ -30,9 +32,18 @@ Example prompt:
 
 ## Optional Native OpenCode Skill
 
-OpenCode discovers native skills from `.opencode/skills/<name>/SKILL.md` or `~/.config/opencode/skills/<name>/SKILL.md`.
+The npm package already contains `skills/nju-cli/SKILL.md`, and the plugin exposes it through `nju_cli_docs`.
 
-The npm plugin already exposes `nju_cli_docs`, so this copy step is optional. If you want OpenCode's native `skill` tool to discover `nju-cli`, copy `skills/nju-cli` from this repository or unpacked package to one of the native skill paths:
+OpenCode's native `skill` tool only discovers skills from configured skill directories:
+
+- `.opencode/skills/<name>/SKILL.md`
+- `~/.config/opencode/skills/<name>/SKILL.md`
+- `.claude/skills/<name>/SKILL.md`
+- `~/.claude/skills/<name>/SKILL.md`
+- `.agents/skills/<name>/SKILL.md`
+- `~/.agents/skills/<name>/SKILL.md`
+
+Only copy `skills/nju-cli` if you specifically want `nju-cli` to appear in that native `skill` tool list:
 
 ```bash
 mkdir -p ~/.config/opencode/skills
