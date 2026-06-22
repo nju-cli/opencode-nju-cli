@@ -3,24 +3,16 @@ import { readFile } from "node:fs/promises"
 import { dirname, join, normalize, relative } from "node:path"
 import { fileURLToPath } from "node:url"
 import { tool } from "@opencode-ai/plugin"
+import { parseDownloadMirrorArgs, resolveNjuCli } from "./nju-cli-binary.js"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 
-function binaryPath() {
-  const platform = process.platform
-  const arch = process.arch
+async function runNjuCli(args, cwd) {
+  const { downloadMirror, forwardArgs } = parseDownloadMirrorArgs(args)
+  const bin = await resolveNjuCli(downloadMirror)
 
-  if (platform === "linux" && arch === "x64") return join(root, "bin/linux-x86_64/nju-cli")
-  if (platform === "linux" && arch === "arm64") return join(root, "bin/linux-aarch64/nju-cli")
-  if (platform === "darwin" && arch === "arm64") return join(root, "bin/macos-aarch64/nju-cli")
-  if (platform === "win32" && arch === "x64") return join(root, "bin/windows-x86_64/nju-cli.exe")
-
-  throw new Error(`nju-cli is not packaged for ${platform}/${arch}`)
-}
-
-function runNjuCli(args, cwd) {
   return new Promise((resolve, reject) => {
-    const child = spawn(binaryPath(), args, {
+    const child = spawn(bin, forwardArgs, {
       cwd,
       env: process.env,
       windowsHide: true,
@@ -68,7 +60,7 @@ export const NjuCliPlugin = async ({ directory }) => {
     tool: {
       nju_cli: tool({
         description:
-          "Run the bundled nju-cli binary for Nanjing University services: academic affairs notices/calendar, ehall grades/course schedule/training program/courses, exchange-system news/projects, and youth-league notices. For unfamiliar NJU workflows, call nju_cli_docs first to read the bundled skill guidance, then pass command-line arguments as an array, for example [\"academic-affairs\", \"notices\", \"--help\"].",
+          "Run nju-cli for Nanjing University services, downloading the release binary on first use when needed: academic affairs notices/calendar, ehall grades/course schedule/training program/courses, exchange-system news/projects, and youth-league notices. For unfamiliar NJU workflows, call nju_cli_docs first to read the bundled skill guidance, then pass command-line arguments as an array, for example [\"academic-affairs\", \"notices\", \"--help\"].",
         args: {
           args: tool.schema.array(tool.schema.string()).describe("Arguments to pass to nju-cli."),
           cwd: tool.schema.string().optional().describe("Working directory. Defaults to the current OpenCode project directory."),

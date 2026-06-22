@@ -1,20 +1,72 @@
 #!/usr/bin/env sh
 set -eu
 
+release_tag="v1.4.1"
+repo="nju-cli/nju-cli"
+nju_mirror_url="https://mirror.nju.edu.cn/github-release/${repo}"
+download_mirror=""
+download_mirror_set=0
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 plugin_dir=$(CDPATH= cd -- "${script_dir}/.." && pwd)
+checksum_file="${script_dir}/nju-cli.sha256"
+
+print_download_mirrors() {
+  echo "available download mirrors:" >&2
+  echo "  nju  ${nju_mirror_url}/" >&2
+}
+
+arg_count=$#
+while [ "${arg_count}" -gt 0 ]; do
+  arg=$1
+  shift
+  arg_count=$((arg_count - 1))
+  case "${arg}" in
+    --download-mirror=*)
+      download_mirror=${arg#--download-mirror=}
+      download_mirror_set=1
+      ;;
+    --download-mirror)
+      echo "--download-mirror requires the --download-mirror=VALUE form" >&2
+      exit 1
+      ;;
+    *)
+      set -- "$@" "${arg}"
+      ;;
+  esac
+done
+
+if [ "${download_mirror_set}" -eq 1 ] && [ "${download_mirror}" = "" ]; then
+  echo "--download-mirror requires a non-empty value" >&2
+  exit 1
+fi
+
+if [ "${download_mirror_set}" -eq 0 ]; then
+  :
+elif [ "${download_mirror}" = "nju" ]; then
+  download_mirror="${nju_mirror_url}"
+else
+  echo "unsupported download mirror: ${download_mirror}" >&2
+  print_download_mirrors
+  exit 1
+fi
 
 os=$(uname -s)
 arch=$(uname -m)
 
 case "${os}:${arch}" in
   Linux:x86_64|Linux:amd64)
+    target="linux-x86_64"
+    asset="nju-cli-linux-x86_64.tar.gz"
     bin="${plugin_dir}/bin/linux-x86_64/nju-cli"
     ;;
   Linux:aarch64|Linux:arm64)
+    target="linux-aarch64"
+    asset="nju-cli-linux-aarch64.tar.gz"
     bin="${plugin_dir}/bin/linux-aarch64/nju-cli"
     ;;
   Darwin:arm64|Darwin:aarch64)
+    target="macos-aarch64"
+    asset="nju-cli-macos-aarch64.tar.gz"
     bin="${plugin_dir}/bin/macos-aarch64/nju-cli"
     ;;
   *)
@@ -23,9 +75,93 @@ case "${os}:${arch}" in
     ;;
 esac
 
-if [ ! -x "${bin}" ]; then
-  echo "nju-cli binary is not packaged for ${os}/${arch}; sync package binaries from a release first" >&2
-  exit 1
+is_lfs_pointer() {
+  [ -f "$1" ] && head -n 1 "$1" 2>/dev/null | grep -q '^version https://git-lfs.github.com/spec/v1'
+}
+
+is_usable_binary() {
+  [ -x "$1" ] && ! is_lfs_pointer "$1"
+}
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  else
+    echo "cannot verify nju-cli: sha256sum or shasum is required" >&2
+    exit 1
+  fi
+}
+
+expected_sha() {
+  [ -f "${checksum_file}" ] || return 0
+  awk -v target="${target}" '$2 == target { print $1; exit }' "${checksum_file}"
+}
+
+download() {
+  if [ "${download_mirror}" = "" ]; then
+    url="https://github.com/${repo}/releases/download/${release_tag}/${asset}"
+  else
+    url="${download_mirror}/${release_tag}/${asset}"
+  fi
+  out="$1"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -fL --retry 3 --connect-timeout 20 -o "${out}" "${url}"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -O "${out}" "${url}"
+  else
+    echo "cannot download nju-cli: curl or wget is required" >&2
+    exit 1
+  fi
+}
+
+extract_binary() {
+  archive="$1"
+  dest="$2"
+  tmp_dir="$3"
+
+  tar -C "${tmp_dir}" -xzf "${archive}"
+  found="${tmp_dir}/nju-cli"
+  if [ ! -f "${found}" ]; then
+    found=$(find "${tmp_dir}" -type f -name nju-cli -perm -111 | head -n 1)
+  fi
+  if [ -z "${found}" ] || [ ! -f "${found}" ]; then
+    echo "downloaded ${asset}, but could not find nju-cli inside it" >&2
+    exit 1
+  fi
+
+  mkdir -p "$(dirname -- "${dest}")"
+  cp "${found}" "${dest}"
+  chmod +x "${dest}"
+}
+
+cache_root="${XDG_CACHE_HOME:-${HOME:-/tmp/.cache}}/nju-cli-plugin/${release_tag}/${target}"
+cache_bin="${cache_root}/nju-cli"
+
+if ! is_usable_binary "${bin}"; then
+  if is_usable_binary "${cache_bin}"; then
+    bin="${cache_bin}"
+  else
+    echo "nju-cli ${release_tag} is not packaged locally; downloading ${target}..." >&2
+    tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/nju-cli.XXXXXX")
+    archive="${tmp_dir}/${asset}"
+    download "${archive}"
+    extract_binary "${archive}" "${cache_bin}" "${tmp_dir}"
+    bin="${cache_bin}"
+  fi
+fi
+
+sha=$(expected_sha)
+if [ -n "${sha}" ]; then
+  actual=$(sha256_file "${bin}")
+  if [ "${actual}" != "${sha}" ]; then
+    echo "nju-cli checksum mismatch for ${target}" >&2
+    echo "expected: ${sha}" >&2
+    echo "actual:   ${actual}" >&2
+    exit 1
+  fi
 fi
 
 exec "${bin}" "$@"

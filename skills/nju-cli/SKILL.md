@@ -13,15 +13,15 @@ compatibility: opencode
 
 优先使用 OpenCode plugin 暴露的工具：
 
-- `nju_cli`: 运行打包的 `nju-cli` 二进制
+- `nju_cli`: 运行 `nju-cli`，需要时首次运行会下载 release 二进制并缓存
 - `nju_cli_docs`: 读取此 skill 及其子命令文档
 
-如果是通过本地 skill 文件使用，也可以直接运行 OpenCode plugin / npm package 内置的 `nju-cli` 二进制：
+如果是通过本地 skill 文件使用，也可以直接运行 OpenCode plugin / npm package 的 wrapper：
 
 - macOS/Linux: `scripts/nju-cli`
 - Windows: `scripts/nju-cli.ps1`
 
-如果当前安装没有内置二进制，再使用系统 PATH 中的 `nju-cli`。
+wrapper 会优先使用本地已有二进制；没有时从 GitHub Releases 下载、校验并缓存。GitHub 访问慢时可以追加 `--download-mirror=nju`。
 
 ## Subcommands
 

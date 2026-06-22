@@ -1,20 +1,19 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process"
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
+import { parseDownloadMirrorArgs, resolveNjuCli } from "../src/nju-cli-binary.js"
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..")
-
-function binaryPath() {
-  if (process.platform === "linux" && process.arch === "x64") return join(root, "bin/linux-x86_64/nju-cli")
-  if (process.platform === "linux" && process.arch === "arm64") return join(root, "bin/linux-aarch64/nju-cli")
-  if (process.platform === "darwin" && process.arch === "arm64") return join(root, "bin/macos-aarch64/nju-cli")
-  if (process.platform === "win32" && process.arch === "x64") return join(root, "bin/windows-x86_64/nju-cli.exe")
-
-  throw new Error(`nju-cli is not packaged for ${process.platform}/${process.arch}`)
+let bin
+let forwardArgs
+try {
+  const parsed = parseDownloadMirrorArgs(process.argv.slice(2))
+  bin = await resolveNjuCli(parsed.downloadMirror)
+  forwardArgs = parsed.forwardArgs
+} catch (error) {
+  console.error(error.message)
+  process.exit(1)
 }
 
-const child = spawn(binaryPath(), process.argv.slice(2), {
+const child = spawn(bin, forwardArgs, {
   stdio: "inherit",
   windowsHide: true,
 })

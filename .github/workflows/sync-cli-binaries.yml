@@ -1,11 +1,13 @@
-name: Sync nju-cli binaries
+name: Sync CLI release metadata
 
 on:
+  schedule:
+    - cron: "17 */6 * * *"
   workflow_dispatch:
     inputs:
       release_tag:
         description: nju-cli release tag to sync
-        required: true
+        required: false
         type: string
 
 permissions:
@@ -14,6 +16,7 @@ permissions:
 
 jobs:
   sync:
+    name: Sync CLI release metadata
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,55 +24,130 @@ jobs:
       - name: Download release artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
-          rm -rf /tmp/nju-cli-artifacts bin
-          mkdir -p /tmp/nju-cli-artifacts bin
-          gh release download "$TAG" \
+          rm -rf dist unpack
+          mkdir -p dist unpack
+          if [ -z "${RELEASE_TAG}" ]; then
+            RELEASE_TAG=$(gh release view --repo nju-cli/nju-cli --json tagName --jq .tagName)
+          fi
+          echo "RELEASE_TAG=${RELEASE_TAG}" >> "${GITHUB_ENV}"
+          gh release download "${RELEASE_TAG}" \
             --repo nju-cli/nju-cli \
-            --dir /tmp/nju-cli-artifacts \
-            --pattern 'nju-cli-*'
+            --dir dist \
+            --pattern 'nju-cli-linux-x86_64.tar.gz' \
+            --pattern 'nju-cli-linux-aarch64.tar.gz' \
+            --pattern 'nju-cli-macos-aarch64.tar.gz' \
+            --pattern 'nju-cli-windows-x86_64.zip'
 
-      - name: Unpack binaries
+      - name: Download source skills
         run: |
           set -euo pipefail
-          mkdir -p bin/linux-x86_64 bin/linux-aarch64 bin/macos-aarch64 bin/windows-x86_64
+          mkdir -p unpack/source
+          curl -fsSL \
+            -o dist/nju-cli-source.tar.gz \
+            "https://codeload.github.com/nju-cli/nju-cli/tar.gz/refs/tags/${RELEASE_TAG}"
+          tar -C unpack/source --strip-components=1 -xzf dist/nju-cli-source.tar.gz
+          test -d unpack/source/nju-cli-skills
 
-          tar -xzf /tmp/nju-cli-artifacts/nju-cli-linux-x86_64.tar.gz -C bin/linux-x86_64
-          tar -xzf /tmp/nju-cli-artifacts/nju-cli-linux-aarch64.tar.gz -C bin/linux-aarch64
-          tar -xzf /tmp/nju-cli-artifacts/nju-cli-macos-aarch64.tar.gz -C bin/macos-aarch64
-          unzip -o /tmp/nju-cli-artifacts/nju-cli-windows-x86_64.zip -d bin/windows-x86_64
+      - name: Unpack release artifacts for checksums
+        run: |
+          set -euo pipefail
+          rm -rf unpack/binaries unpack/windows
+          mkdir -p \
+            unpack/binaries/linux-x86_64 \
+            unpack/binaries/linux-aarch64 \
+            unpack/binaries/macos-aarch64 \
+            unpack/binaries/windows-x86_64
 
-          chmod +x bin/linux-x86_64/nju-cli bin/linux-aarch64/nju-cli bin/macos-aarch64/nju-cli
+          tar -C unpack/binaries/linux-x86_64 -xzf dist/nju-cli-linux-x86_64.tar.gz
+          if [ -f dist/nju-cli-linux-aarch64.tar.gz ]; then
+            tar -C unpack/binaries/linux-aarch64 -xzf dist/nju-cli-linux-aarch64.tar.gz
+          fi
+          tar -C unpack/binaries/macos-aarch64 -xzf dist/nju-cli-macos-aarch64.tar.gz
+          unzip -q dist/nju-cli-windows-x86_64.zip -d unpack/windows
+
+          cp unpack/windows/nju-cli.exe unpack/binaries/windows-x86_64/nju-cli.exe
+          chmod +x \
+            unpack/binaries/linux-x86_64/nju-cli \
+            unpack/binaries/macos-aarch64/nju-cli
+          if [ -f unpack/binaries/linux-aarch64/nju-cli ]; then
+            chmod +x unpack/binaries/linux-aarch64/nju-cli
+          fi
 
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
 
-      - name: Update npm package version
-        env:
-          TAG: ${{ inputs.release_tag }}
+      - name: Update package version, skill docs, and release tags
         run: |
           set -euo pipefail
-          version="${TAG#v}"
+          version="${RELEASE_TAG#v}"
           npm pkg set "version=${version}"
 
-      - name: Commit binary sync
+          rm -rf skills/nju-cli
+          mkdir -p skills
+          cp -R unpack/source/nju-cli-skills skills/nju-cli
+          python3 - <<PY
+          import re
+          from pathlib import Path
+
+          skill_path = Path("skills/nju-cli/SKILL.md")
+          skill = skill_path.read_text()
+          skill = skill.replace(
+              "优先使用 Codex plugin 内置的 `nju-cli` 二进制：",
+              "优先使用 OpenCode plugin 暴露的工具：",
+          )
+          skill = skill.replace(
+              "- `nju_cli`: 运行打包的 `nju-cli` 二进制",
+              "- `nju_cli`: 运行 `nju-cli`，需要时首次运行会下载 release 二进制并缓存",
+          )
+          skill = skill.replace(
+              "如果是通过本地 skill 文件使用，也可以直接运行 OpenCode plugin / npm package 内置的 `nju-cli` 二进制：",
+              "如果是通过本地 skill 文件使用，也可以直接运行 OpenCode plugin / npm package 的 wrapper：",
+          )
+          skill = skill.replace(
+              "如果当前安装没有内置二进制，再使用系统 PATH 中的 `nju-cli`。",
+              "wrapper 会优先使用本地已有二进制；没有时从 GitHub Releases 下载、校验并缓存。GitHub 访问慢时可以追加 `--download-mirror=nju`。",
+          )
+          skill_path.write_text(skill)
+
+          for script_path in [Path("scripts/nju-cli"), Path("scripts/nju-cli.ps1"), Path("src/nju-cli-binary.js")]:
+              text = script_path.read_text()
+              text, shell_count = re.subn(r'release_tag="[^"]+"', 'release_tag="${RELEASE_TAG}"', text)
+              text, ps_count = re.subn(r'\$ReleaseTag = "[^"]+"', '$ReleaseTag = "${RELEASE_TAG}"', text)
+              text, js_count = re.subn(r'export const releaseTag = "[^"]+"', 'export const releaseTag = "${RELEASE_TAG}"', text)
+              if shell_count + ps_count + js_count != 1:
+                  raise RuntimeError(f"expected exactly one release tag assignment in {script_path}, found {shell_count + ps_count + js_count}")
+              script_path.write_text(text)
+          PY
+
+      - name: Update binary checksums
+        run: |
+          set -euo pipefail
+          {
+            sha256sum unpack/binaries/linux-x86_64/nju-cli | awk '{print $1 " linux-x86_64 nju-cli"}'
+            if [ -f unpack/binaries/linux-aarch64/nju-cli ]; then
+              sha256sum unpack/binaries/linux-aarch64/nju-cli | awk '{print $1 " linux-aarch64 nju-cli"}'
+            fi
+            sha256sum unpack/binaries/macos-aarch64/nju-cli | awk '{print $1 " macos-aarch64 nju-cli"}'
+            sha256sum unpack/binaries/windows-x86_64/nju-cli.exe | awk '{print $1 " windows-x86_64 nju-cli.exe"}'
+          } > scripts/nju-cli.sha256
+
+      - name: Commit release metadata sync
         id: commit
-        env:
-          TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add bin package.json
+          git add package.json scripts src skills/nju-cli
           if git diff --cached --quiet; then
-            echo "No binary changes to commit."
+            echo "No release metadata changes to commit."
             echo "published=false" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
-          git commit -m "chore: sync nju-cli binaries for ${TAG}"
+          git commit -m "chore: sync nju-cli ${RELEASE_TAG}"
           git push
           echo "published=true" >> "${GITHUB_OUTPUT}"
 

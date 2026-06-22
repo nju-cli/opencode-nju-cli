@@ -21,7 +21,7 @@ That is the full install path. Users do not need to copy skill files manually.
 
 The plugin exposes two tools:
 
-- `nju_cli`: runs the bundled `nju-cli` binary.
+- `nju_cli`: runs `nju-cli`, downloading the release binary on first use when needed.
 - `nju_cli_docs`: reads the bundled skill guidance before choosing a subcommand.
 
 Example prompt:
@@ -52,14 +52,23 @@ cp -R skills/nju-cli ~/.config/opencode/skills/
 
 For project-local use, copy `skills/nju-cli` to `.opencode/skills/nju-cli`.
 
-## Packaged CLI
+## CLI Binary
 
-The package includes release binaries under `bin/` and wrappers under `scripts/`.
+The package includes wrappers under `scripts/`. It does not store release binaries in Git or npm.
+On first use, the wrapper downloads the matching `nju-cli` release artifact from GitHub Releases,
+caches the extracted binary under the user cache directory, and verifies it against
+`scripts/nju-cli.sha256`.
 
-Supported packaged targets:
+Use the NJU GitHub release mirror when GitHub is slow or unavailable:
+
+```bash
+nju-cli --download-mirror=nju --help
+```
+
+Supported release targets:
 
 - Linux x86_64
-- Linux aarch64, when release artifacts are synced
+- Linux aarch64
 - macOS Apple Silicon
 - Windows x86_64
 
