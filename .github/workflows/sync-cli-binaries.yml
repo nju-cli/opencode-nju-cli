@@ -89,9 +89,12 @@ jobs:
           rm -rf skills/nju-cli
           mkdir -p skills
           cp -R unpack/source/nju-cli-skills skills/nju-cli
-          python3 - <<PY
+          python3 - <<'PY'
+          import os
           import re
           from pathlib import Path
+
+          release_tag = os.environ["RELEASE_TAG"]
 
           skill_path = Path("skills/nju-cli/SKILL.md")
           skill = skill_path.read_text()
@@ -115,9 +118,9 @@ jobs:
 
           for script_path in [Path("scripts/nju-cli"), Path("scripts/nju-cli.ps1"), Path("src/nju-cli-binary.js")]:
               text = script_path.read_text()
-              text, shell_count = re.subn(r'release_tag="[^"]+"', 'release_tag="${RELEASE_TAG}"', text)
-              text, ps_count = re.subn(r'\$ReleaseTag = "[^"]+"', '$ReleaseTag = "${RELEASE_TAG}"', text)
-              text, js_count = re.subn(r'export const releaseTag = "[^"]+"', 'export const releaseTag = "${RELEASE_TAG}"', text)
+              text, shell_count = re.subn(r'release_tag="[^"]+"', f'release_tag="{release_tag}"', text)
+              text, ps_count = re.subn(r'\$ReleaseTag = "[^"]+"', f'$ReleaseTag = "{release_tag}"', text)
+              text, js_count = re.subn(r'export const releaseTag = "[^"]+"', f'export const releaseTag = "{release_tag}"', text)
               if shell_count + ps_count + js_count != 1:
                   raise RuntimeError(f"expected exactly one release tag assignment in {script_path}, found {shell_count + ps_count + js_count}")
               script_path.write_text(text)
