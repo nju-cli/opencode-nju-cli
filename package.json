@@ -1,6 +1,6 @@
 {
   "name": "opencode-nju-cli",
-  "version": "1.4.1",
+  "version": "1.4.3",
   "description": "OpenCode plugin and skill docs for Nanjing University workflows powered by nju-cli.",
   "type": "module",
   "main": "./src/index.js",
