@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 
-export const releaseTag = "v1.4.7"
+export const releaseTag = "v1.5"
 const repo = "nju-cli/nju-cli"
 const njuMirrorUrl = `https://mirror.nju.edu.cn/github-release/${repo}`
 
