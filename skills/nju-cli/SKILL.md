@@ -11,15 +11,15 @@ description: 南京大学相关操作，比如教务通知、研究生培养与�
 
 优先使用 OpenCode plugin 暴露的工具：
 
-- macOS/Linux: `scripts/nju-cli`
-- Windows: `scripts/nju-cli.ps1`
+- macOS/Linux: `../../scripts/nju-cli`
+- Windows: `../../scripts/nju-cli.ps1`
 
 wrapper 会优先使用本地已有二进制；没有时从 GitHub Releases 下载、校验并缓存。GitHub 访问慢时可以追加 `--download-mirror=nju`。
 
 如果运行内置脚本时需要下载二进制，并且 GitHub Releases 下载慢或不可用，可以给脚本传下载镜像选项：
 
 ```bash
-scripts/nju-cli --download-mirror=nju <args>
+../../scripts/nju-cli --download-mirror=nju <args>
 ```
 
 当前可用下载镜像： `nju`
