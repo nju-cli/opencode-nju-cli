@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$ReleaseTag = "v1.7-e862a"
+$ReleaseTag = "v1.7-ad59c"
 $Repo = "nju-cli/nju-cli"
 $NjuMirrorUrl = "https://mirror.nju.edu.cn/github-release/$Repo"
 $DownloadMirror = $null

@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-release_tag="v1.7-e862a"
+release_tag="v1.7-ad59c"
 repo="nju-cli/nju-cli"
 nju_mirror_url="https://mirror.nju.edu.cn/github-release/${repo}"
 download_mirror=""
